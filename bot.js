@@ -155,47 +155,6 @@ async function fetchProductInfo(barcode) {
   }
 }
 
-// --- Simple box blur for background ---
-function stackBlur(sourceCanvas, radius) {
-  // Multi-pass downscale/upscale blur for smooth result
-  const w = sourceCanvas.width;
-  const h = sourceCanvas.height;
-  const passes = 3;
-  let current = sourceCanvas;
-  
-  for (let i = 0; i < passes; i++) {
-    const smallW = Math.max(1, Math.floor(w / (radius / passes)));
-    const smallH = Math.max(1, Math.floor(h / (radius / passes)));
-    const small = createCanvas(smallW, smallH);
-    const sCtx = small.getContext('2d');
-    sCtx.drawImage(current, 0, 0, smallW, smallH);
-    
-    const big = createCanvas(w, h);
-    const bCtx = big.getContext('2d');
-    bCtx.drawImage(small, 0, 0, w, h);
-    current = big;
-  }
-  return current;
-}
-
-// --- Load logo image (cached) ---
-let logoCache = null;
-async function getLogo() {
-  if (logoCache) return logoCache;
-  const logoPath = path.join(__dirname, 'assets', 'logo.jpg');
-  if (fs.existsSync(logoPath)) {
-    logoCache = await loadImage(logoPath);
-    return logoCache;
-  }
-  // Try png fallback
-  const pngPath = path.join(__dirname, 'assets', 'logo.png');
-  if (fs.existsSync(pngPath)) {
-    logoCache = await loadImage(pngPath);
-    return logoCache;
-  }
-  return null;
-}
-
 // --- Fetch image from URL ---
 async function fetchImage(url) {
   try {
@@ -223,94 +182,63 @@ function roundedRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// --- Render barcode image (new design) ---
+// --- Render barcode image ---
 async function renderBarcodeImage(asdaBarcode, productName, price, productImageUrl) {
-  const size = 1080; // 1:1 square
+  const size = 1080;
   const canvas = createCanvas(size, size);
   const ctx = canvas.getContext('2d');
 
-  // --- Background: logo blurred properly ---
-  const logo = await getLogo();
-  
-  // Fill dark navy base
+  // Solid blue background
   ctx.fillStyle = '#1a1a4e';
   ctx.fillRect(0, 0, size, size);
 
-  if (logo) {
-    // Draw logo full size onto a temp canvas, then blur it
-    const bgCanvas = createCanvas(size, size);
-    const bgCtx = bgCanvas.getContext('2d');
-    
-    // Draw logo centered and scaled to cover
-    const scale = Math.max(size / logo.width, size / logo.height);
-    const lw = logo.width * scale;
-    const lh = logo.height * scale;
-    bgCtx.drawImage(logo, (size - lw) / 2, (size - lh) / 2, lw, lh);
-    
-    // Apply blur
-    const blurred = stackBlur(bgCanvas, 12);
-    
-    // Draw blurred background at full opacity
-    ctx.drawImage(blurred, 0, 0, size, size);
-    
-    // Slight dark overlay for text readability
-    ctx.fillStyle = 'rgba(10, 10, 40, 0.45)';
-    ctx.fillRect(0, 0, size, size);
-  }
-
-  // --- Title: "Matrix Asda Gen" ---
+  // Title: "Matrix Asda Gen"
   ctx.textAlign = 'center';
   const titleGradient = ctx.createLinearGradient(size / 2 - 200, 0, size / 2 + 200, 0);
   titleGradient.addColorStop(0, '#10b981');
   titleGradient.addColorStop(1, '#a3e635');
   ctx.fillStyle = titleGradient;
-  ctx.font = 'bold 52px sans-serif';
+  ctx.font = 'bold 56px sans-serif';
   ctx.fillText('Matrix Asda Gen', size / 2, 80);
 
-  // --- Product name ---
+  // Product name
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 38px sans-serif';
+  ctx.font = 'bold 40px sans-serif';
   const displayName = productName || 'Unknown Product';
   const maxWidth = size - 100;
   if (ctx.measureText(displayName).width > maxWidth) {
-    ctx.font = 'bold 30px sans-serif';
+    ctx.font = 'bold 32px sans-serif';
   }
-  ctx.fillText(displayName, size / 2, 140, maxWidth);
+  ctx.fillText(displayName, size / 2, 150, maxWidth);
 
-  // --- Price ---
+  // Price
   ctx.fillStyle = '#10b981';
-  ctx.font = 'bold 54px sans-serif';
-  ctx.fillText(`£${price}`, size / 2, 210);
+  ctx.font = 'bold 52px sans-serif';
+  ctx.fillText(`£${price}`, size / 2, 220);
 
-  // --- Product image (if available) ---
-  let barcodeYStart = 240;
+  // Product image (if available)
+  let barcodeYStart = 260;
   if (productImageUrl) {
     const productImg = await fetchImage(productImageUrl);
     if (productImg) {
-      const imgSize = 380;
+      const imgSize = 400;
       const imgX = (size - imgSize) / 2;
-      const imgY = 250;
-      
-      // Subtle border around product image
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-      roundedRect(ctx, imgX - 8, imgY - 8, imgSize + 16, imgSize + 16, 22);
-      ctx.fill();
-      
-      // Draw product image clipped to rounded rect
+      const imgY = 260;
+
       ctx.save();
       roundedRect(ctx, imgX, imgY, imgSize, imgSize, 16);
       ctx.clip();
       ctx.drawImage(productImg, imgX, imgY, imgSize, imgSize);
       ctx.restore();
-      
+
       barcodeYStart = imgY + imgSize + 40;
     }
   }
 
-  // --- Barcode: full width, white rounded box ---
-  const barcodePadding = 40;
+  // Barcode — full width white box, barcode fills the space
+  const barcodePadding = 30;
   const barcodeBoxW = size - (barcodePadding * 2);
-  const barcodeBoxH = 260;
+  const barcodeBoxH = size - barcodeYStart - 40;
   const barcodeBoxX = barcodePadding;
   const barcodeBoxY = barcodeYStart;
 
@@ -318,36 +246,28 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   roundedRect(ctx, barcodeBoxX, barcodeBoxY, barcodeBoxW, barcodeBoxH, 20);
   ctx.fill();
 
-  // Render barcode to fill the white box
-  const barcodeInnerW = barcodeBoxW - 40;
-  const barcodeInnerH = barcodeBoxH - 30;
-  const barcodeCanvas = createCanvas(barcodeInnerW, barcodeInnerH);
+  // Render barcode to fill the entire white box
+  const barcodeCanvas = createCanvas(barcodeBoxW - 20, barcodeBoxH - 20);
   try {
     JsBarcode(barcodeCanvas, asdaBarcode, {
       format: 'CODE128',
-      width: 3,
-      height: barcodeInnerH - 50,
+      width: 4,
+      height: barcodeBoxH - 70,
       displayValue: true,
-      fontSize: 22,
-      margin: 10,
+      fontSize: 28,
+      margin: 5,
       background: '#ffffff',
       lineColor: '#000000',
     });
   } catch {
     const bCtx = barcodeCanvas.getContext('2d');
     bCtx.fillStyle = '#000000';
-    bCtx.font = '22px monospace';
+    bCtx.font = '24px monospace';
     bCtx.textAlign = 'center';
     bCtx.fillText(asdaBarcode, barcodeCanvas.width / 2, barcodeCanvas.height / 2);
   }
 
-  ctx.drawImage(barcodeCanvas, barcodeBoxX + 20, barcodeBoxY + 15);
-
-  // --- Footer watermark ---
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-  ctx.font = '18px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('Matrix Methods', size / 2, size - 25);
+  ctx.drawImage(barcodeCanvas, barcodeBoxX + 10, barcodeBoxY + 10);
 
   return canvas.toBuffer('image/png');
 }
