@@ -86,6 +86,12 @@ const commands = [
         .setName('price')
         .setDescription('Price in £ (e.g. 0.10)')
         .setRequired(true)
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName('original_price')
+        .setDescription('Original price in £ (e.g. 5.10)')
+        .setRequired(false)
     ),
   new SlashCommandBuilder()
     .setName('allow')
@@ -138,9 +144,9 @@ function generateAsdaBarcode(productBarcode, priceInPence) {
   return body + checkDigit;
 }
 
-// --- Fetch product info (try Asda groceries first, then OpenFoodFacts) ---
+// --- Fetch product info (try OpenFoodFacts first, then Asda) ---
 async function fetchProductInfo(barcode) {
-  // Try OpenFoodFacts (reliable for barcode lookups, has images)
+  // Try OpenFoodFacts (reliable for barcode lookups, has images and price)
   try {
     const res = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`
@@ -151,6 +157,7 @@ async function fetchProductInfo(barcode) {
         return {
           name: data.product.product_name,
           imageUrl: data.product.image_front_url || data.product.image_url || null,
+          originalPrice: null, // OpenFoodFacts doesn't have price
         };
       }
     }
@@ -175,12 +182,13 @@ async function fetchProductInfo(barcode) {
         return {
           name: item.item_name || item.name || null,
           imageUrl: item.images?.large || item.image || null,
+          originalPrice: item.price?.price_info?.price || item.price || null,
         };
       }
     }
   } catch {}
 
-  return { name: null, imageUrl: null };
+  return { name: null, imageUrl: null, originalPrice: null };
 }
 
 // --- Fetch image from URL ---
@@ -211,97 +219,136 @@ function roundedRect(ctx, x, y, w, h, r) {
 }
 
 // --- Render barcode image ---
-async function renderBarcodeImage(asdaBarcode, productName, price, productImageUrl) {
-  const size = 1080;
-  const canvas = createCanvas(size, size);
+async function renderBarcodeImage(asdaBarcode, productName, price, productImageUrl, originalPrice) {
+  const width = 800;
+  const height = 1200;
+  const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // Solid blue background
-  ctx.fillStyle = '#1a1a4e';
-  ctx.fillRect(0, 0, size, size);
+  // White/light grey background
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(0, 0, width, height);
 
-  // Title: "Matrix Asda Gen"
-  ctx.textAlign = 'center';
-  const titleGradient = ctx.createLinearGradient(size / 2 - 200, 0, size / 2 + 200, 0);
-  titleGradient.addColorStop(0, '#10b981');
-  titleGradient.addColorStop(1, '#a3e635');
-  ctx.fillStyle = titleGradient;
-  ctx.font = 'bold 56px sans-serif';
-  ctx.fillText('Matrix Asda Gen', size / 2, 80);
+  let currentY = 40;
 
-  // Product name
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 40px sans-serif';
-  const displayName = productName || 'Unknown Product';
-  const maxWidth = size - 100;
-  if (ctx.measureText(displayName).width > maxWidth) {
-    ctx.font = 'bold 32px sans-serif';
-  }
-  ctx.fillText(displayName, size / 2, 150, maxWidth);
-
-  // Price
-  ctx.fillStyle = '#10b981';
-  ctx.font = 'bold 52px sans-serif';
-  ctx.fillText(`£${price}`, size / 2, 220);
-
-  // Product image (if available)
-  let barcodeYStart = 260;
+  // --- Product image ---
   if (productImageUrl) {
     const productImg = await fetchImage(productImageUrl);
     if (productImg) {
-      const imgSize = 400;
-      const imgX = (size - imgSize) / 2;
-      const imgY = 260;
+      const imgSize = 350;
+      const imgX = (width - imgSize) / 2;
+      const imgY = currentY;
 
+      // White rounded background behind product image
+      ctx.fillStyle = '#ffffff';
+      roundedRect(ctx, imgX - 15, imgY - 15, imgSize + 30, imgSize + 30, 16);
+      ctx.fill();
+
+      // Draw product image
       ctx.save();
-      roundedRect(ctx, imgX, imgY, imgSize, imgSize, 16);
+      roundedRect(ctx, imgX, imgY, imgSize, imgSize, 12);
       ctx.clip();
-      ctx.drawImage(productImg, imgX, imgY, imgSize, imgSize);
+      // Maintain aspect ratio
+      const scale = Math.min(imgSize / productImg.width, imgSize / productImg.height);
+      const drawW = productImg.width * scale;
+      const drawH = productImg.height * scale;
+      const drawX = imgX + (imgSize - drawW) / 2;
+      const drawY = imgY + (imgSize - drawH) / 2;
+      ctx.drawImage(productImg, drawX, drawY, drawW, drawH);
       ctx.restore();
 
-      barcodeYStart = imgY + imgSize + 40;
+      currentY = imgY + imgSize + 50;
     }
+  } else {
+    currentY = 80;
   }
 
-  // Barcode — full width white box, barcode fills the space
-  const barcodePadding = 30;
-  const barcodeBoxW = size - (barcodePadding * 2);
-  const barcodeBoxH = size - barcodeYStart - 40;
-  const barcodeBoxX = barcodePadding;
-  const barcodeBoxY = barcodeYStart;
-
+  // --- Product name ---
+  ctx.textAlign = 'center';
   ctx.fillStyle = '#ffffff';
-  roundedRect(ctx, barcodeBoxX, barcodeBoxY, barcodeBoxW, barcodeBoxH, 20);
+  ctx.font = '38px sans-serif';
+  const displayName = productName || 'Unknown Product';
+  const maxTextWidth = width - 80;
+  if (ctx.measureText(displayName).width > maxTextWidth) {
+    ctx.font = '30px sans-serif';
+  }
+  ctx.fillText(displayName, width / 2, currentY, maxTextWidth);
+  currentY += 50;
+
+  // --- "WAS £X.XX" with strikethrough (red) ---
+  if (originalPrice) {
+    const wasText = `WAS £${originalPrice}`;
+    ctx.fillStyle = '#e53e3e';
+    ctx.font = '28px sans-serif';
+    ctx.fillText(wasText, width / 2, currentY);
+    // Strikethrough line
+    const textWidth = ctx.measureText(wasText).width;
+    ctx.strokeStyle = '#e53e3e';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(width / 2 - textWidth / 2, currentY - 8);
+    ctx.lineTo(width / 2 + textWidth / 2, currentY - 8);
+    ctx.stroke();
+    currentY += 60;
+  } else {
+    currentY += 20;
+  }
+
+  // --- New price in yellow box ---
+  const priceText = `£${price}`;
+  ctx.font = 'bold 64px sans-serif';
+  const priceTextWidth = ctx.measureText(priceText).width;
+  const boxPadX = 40;
+  const boxPadY = 20;
+  const priceBoxW = priceTextWidth + boxPadX * 2;
+  const priceBoxH = 80 + boxPadY;
+  const priceBoxX = (width - priceBoxW) / 2;
+  const priceBoxY = currentY - 10;
+
+  // Yellow rounded box
+  ctx.fillStyle = '#f5c518';
+  roundedRect(ctx, priceBoxX, priceBoxY, priceBoxW, priceBoxH, 12);
   ctx.fill();
 
-  // Render barcode to fill the entire white box
-  const barcodeCanvas = createCanvas(barcodeBoxW - 20, barcodeBoxH - 20);
+  // Price text in black
+  ctx.fillStyle = '#000000';
+  ctx.font = 'bold 64px sans-serif';
+  ctx.fillText(priceText, width / 2, priceBoxY + priceBoxH - 22);
+  currentY = priceBoxY + priceBoxH + 50;
+
+  // --- Barcode fills remaining space ---
+  const barcodePadding = 40;
+  const barcodeW = width - (barcodePadding * 2);
+  const barcodeH = height - currentY - 30;
+
+  const barcodeCanvas = createCanvas(barcodeW, barcodeH);
   try {
     JsBarcode(barcodeCanvas, asdaBarcode, {
       format: 'CODE128',
       width: 4,
-      height: barcodeBoxH - 70,
+      height: barcodeH - 50,
       displayValue: true,
-      fontSize: 28,
+      fontSize: 24,
       margin: 5,
-      background: '#ffffff',
-      lineColor: '#000000',
+      background: 'transparent',
+      lineColor: '#ffffff',
+      font: 'sans-serif',
     });
   } catch {
     const bCtx = barcodeCanvas.getContext('2d');
-    bCtx.fillStyle = '#000000';
+    bCtx.fillStyle = '#ffffff';
     bCtx.font = '24px monospace';
     bCtx.textAlign = 'center';
     bCtx.fillText(asdaBarcode, barcodeCanvas.width / 2, barcodeCanvas.height / 2);
   }
 
-  ctx.drawImage(barcodeCanvas, barcodeBoxX + 10, barcodeBoxY + 10);
+  ctx.drawImage(barcodeCanvas, barcodePadding, currentY);
 
   return canvas.toBuffer('image/png');
 }
 
 // --- Handle barcode generation (shared between /gen and modal) ---
-async function handleBarcodeGeneration(interaction, productBarcode, priceStr) {
+async function handleBarcodeGeneration(interaction, productBarcode, priceStr, userOriginalPrice) {
   const priceFloat = parseFloat(priceStr);
   if (isNaN(priceFloat) || priceFloat < 0) {
     await interaction.editReply('❌ Invalid price entered.');
@@ -312,15 +359,19 @@ async function handleBarcodeGeneration(interaction, productBarcode, priceStr) {
   // Generate barcode string
   const asdaBarcode = generateAsdaBarcode(productBarcode, priceInPence);
 
-  // Fetch product info (name + image)
-  const { name: productName, imageUrl } = await fetchProductInfo(productBarcode);
+  // Fetch product info (name + image + original price)
+  const { name: productName, imageUrl, originalPrice: fetchedPrice } = await fetchProductInfo(productBarcode);
+
+  // Use user-provided original price if given, otherwise use fetched one
+  const originalPrice = userOriginalPrice || fetchedPrice || null;
 
   // Render image
   const imageBuffer = await renderBarcodeImage(
     asdaBarcode,
     productName,
     priceFloat.toFixed(2),
-    imageUrl
+    imageUrl,
+    originalPrice
   );
 
   const attachment = new AttachmentBuilder(imageBuffer, {
@@ -441,7 +492,8 @@ client.on('interactionCreate', async (interaction) => {
       await interaction.deferReply({ ephemeral: true });
       const productBarcode = interaction.options.getString('barcode');
       const priceStr = interaction.options.getString('price');
-      await handleBarcodeGeneration(interaction, productBarcode, priceStr);
+      const ogPriceStr = interaction.options.getString('original_price') || null;
+      await handleBarcodeGeneration(interaction, productBarcode, priceStr, ogPriceStr);
       return;
     }
   }
@@ -479,9 +531,17 @@ client.on('interactionCreate', async (interaction) => {
       .setStyle(TextInputStyle.Short)
       .setRequired(true);
 
+    const ogPriceInput = new TextInputBuilder()
+      .setCustomId('original_price')
+      .setLabel('Original Price (£) - optional')
+      .setPlaceholder('e.g. 5.10')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false);
+
     modal.addComponents(
       new ActionRowBuilder().addComponents(barcodeInput),
-      new ActionRowBuilder().addComponents(priceInput)
+      new ActionRowBuilder().addComponents(priceInput),
+      new ActionRowBuilder().addComponents(ogPriceInput)
     );
 
     await interaction.showModal(modal);
@@ -494,7 +554,8 @@ client.on('interactionCreate', async (interaction) => {
 
     const productBarcode = interaction.fields.getTextInputValue('product_barcode');
     const priceStr = interaction.fields.getTextInputValue('price');
-    await handleBarcodeGeneration(interaction, productBarcode, priceStr);
+    const ogPriceStr = interaction.fields.getTextInputValue('original_price') || null;
+    await handleBarcodeGeneration(interaction, productBarcode, priceStr, ogPriceStr);
   }
 });
 
