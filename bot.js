@@ -225,30 +225,29 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
-  // White/light grey background
+  // Dark background
   ctx.fillStyle = '#2a2a2a';
   ctx.fillRect(0, 0, width, height);
 
-  let currentY = 40;
+  let currentY = 50;
 
   // --- Product image ---
   if (productImageUrl) {
     const productImg = await fetchImage(productImageUrl);
     if (productImg) {
-      const imgSize = 350;
+      const imgSize = 320;
       const imgX = (width - imgSize) / 2;
       const imgY = currentY;
 
-      // White rounded background behind product image
+      // White background behind product image
       ctx.fillStyle = '#ffffff';
-      roundedRect(ctx, imgX - 15, imgY - 15, imgSize + 30, imgSize + 30, 16);
+      roundedRect(ctx, imgX - 20, imgY - 20, imgSize + 40, imgSize + 40, 16);
       ctx.fill();
 
-      // Draw product image
+      // Draw product image maintaining aspect ratio
       ctx.save();
-      roundedRect(ctx, imgX, imgY, imgSize, imgSize, 12);
+      roundedRect(ctx, imgX, imgY, imgSize, imgSize, 8);
       ctx.clip();
-      // Maintain aspect ratio
       const scale = Math.min(imgSize / productImg.width, imgSize / productImg.height);
       const drawW = productImg.width * scale;
       const drawH = productImg.height * scale;
@@ -257,87 +256,85 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
       ctx.drawImage(productImg, drawX, drawY, drawW, drawH);
       ctx.restore();
 
-      currentY = imgY + imgSize + 50;
+      currentY = imgY + imgSize + 60;
     }
-  } else {
-    currentY = 80;
   }
 
   // --- Product name ---
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '38px sans-serif';
   const displayName = productName || 'Unknown Product';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '36px sans-serif';
   const maxTextWidth = width - 80;
   if (ctx.measureText(displayName).width > maxTextWidth) {
-    ctx.font = '30px sans-serif';
+    ctx.font = '28px sans-serif';
   }
   ctx.fillText(displayName, width / 2, currentY, maxTextWidth);
-  currentY += 50;
+  currentY += 55;
 
-  // --- "WAS £X.XX" with strikethrough (red) ---
+  // --- "WAS £X.XX" with strikethrough ---
   if (originalPrice) {
     const wasText = `WAS £${originalPrice}`;
-    ctx.fillStyle = '#e53e3e';
-    ctx.font = '28px sans-serif';
+    ctx.fillStyle = '#ef4444';
+    ctx.font = '26px sans-serif';
+    ctx.textBaseline = 'middle';
     ctx.fillText(wasText, width / 2, currentY);
     // Strikethrough line
-    const textWidth = ctx.measureText(wasText).width;
-    ctx.strokeStyle = '#e53e3e';
+    const textW = ctx.measureText(wasText).width;
+    ctx.strokeStyle = '#ef4444';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(width / 2 - textWidth / 2, currentY - 8);
-    ctx.lineTo(width / 2 + textWidth / 2, currentY - 8);
+    ctx.moveTo(width / 2 - textW / 2, currentY);
+    ctx.lineTo(width / 2 + textW / 2, currentY);
     ctx.stroke();
-    currentY += 60;
-  } else {
-    currentY += 20;
+    currentY += 50;
   }
 
-  // --- New price in yellow box ---
+  // --- New price in yellow rounded box ---
   const priceText = `£${price}`;
-  ctx.font = 'bold 64px sans-serif';
-  const priceTextWidth = ctx.measureText(priceText).width;
-  const boxPadX = 40;
-  const boxPadY = 20;
-  const priceBoxW = priceTextWidth + boxPadX * 2;
-  const priceBoxH = 80 + boxPadY;
-  const priceBoxX = (width - priceBoxW) / 2;
-  const priceBoxY = currentY - 10;
+  ctx.font = 'bold 58px sans-serif';
+  ctx.textBaseline = 'middle';
+  const priceMetrics = ctx.measureText(priceText);
+  const pBoxW = priceMetrics.width + 60;
+  const pBoxH = 90;
+  const pBoxX = (width - pBoxW) / 2;
+  const pBoxY = currentY;
 
-  // Yellow rounded box
+  // Yellow box
   ctx.fillStyle = '#f5c518';
-  roundedRect(ctx, priceBoxX, priceBoxY, priceBoxW, priceBoxH, 12);
+  roundedRect(ctx, pBoxX, pBoxY, pBoxW, pBoxH, 14);
   ctx.fill();
 
-  // Price text in black
+  // Price text centered in the yellow box
   ctx.fillStyle = '#000000';
-  ctx.font = 'bold 64px sans-serif';
-  ctx.fillText(priceText, width / 2, priceBoxY + priceBoxH - 22);
-  currentY = priceBoxY + priceBoxH + 50;
+  ctx.font = 'bold 58px sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(priceText, width / 2, pBoxY + pBoxH / 2);
+
+  currentY = pBoxY + pBoxH + 50;
 
   // --- Barcode fills remaining space ---
-  const barcodePadding = 40;
+  const barcodePadding = 30;
   const barcodeW = width - (barcodePadding * 2);
-  const barcodeH = height - currentY - 30;
+  const barcodeH = height - currentY - 20;
 
-  const barcodeCanvas = createCanvas(barcodeW, barcodeH);
+  const barcodeCanvas = createCanvas(barcodeW, Math.max(barcodeH, 150));
   try {
     JsBarcode(barcodeCanvas, asdaBarcode, {
       format: 'CODE128',
-      width: 4,
-      height: barcodeH - 50,
+      width: 3,
+      height: Math.max(barcodeH - 50, 100),
       displayValue: true,
-      fontSize: 24,
+      fontSize: 22,
       margin: 5,
       background: 'transparent',
       lineColor: '#ffffff',
-      font: 'sans-serif',
     });
   } catch {
     const bCtx = barcodeCanvas.getContext('2d');
     bCtx.fillStyle = '#ffffff';
-    bCtx.font = '24px monospace';
+    bCtx.font = '22px monospace';
     bCtx.textAlign = 'center';
     bCtx.fillText(asdaBarcode, barcodeCanvas.width / 2, barcodeCanvas.height / 2);
   }
