@@ -138,21 +138,49 @@ function generateAsdaBarcode(productBarcode, priceInPence) {
   return body + checkDigit;
 }
 
-// --- Fetch product info from OpenFoodFacts ---
+// --- Fetch product info (try Asda groceries first, then OpenFoodFacts) ---
 async function fetchProductInfo(barcode) {
+  // Try OpenFoodFacts (reliable for barcode lookups, has images)
   try {
     const res = await fetch(
       `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`
     );
-    if (!res.ok) return { name: null, imageUrl: null };
-    const data = await res.json();
-    return {
-      name: data?.product?.product_name || null,
-      imageUrl: data?.product?.image_front_url || data?.product?.image_url || null,
-    };
-  } catch {
-    return { name: null, imageUrl: null };
-  }
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.product?.product_name) {
+        return {
+          name: data.product.product_name,
+          imageUrl: data.product.image_front_url || data.product.image_url || null,
+        };
+      }
+    }
+  } catch {}
+
+  // Try Asda grocery search as fallback
+  try {
+    const res = await fetch(
+      `https://groceries.asda.com/api/items/search?keyword=${barcode}&page=1&page_size=1`,
+      {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Accept': 'application/json',
+        },
+      }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const item = data?.data?.tempo_cms_content?.zone2?.[0]?.fitment?.items?.[0]
+        || data?.data?.items?.[0];
+      if (item) {
+        return {
+          name: item.item_name || item.name || null,
+          imageUrl: item.images?.large || item.image || null,
+        };
+      }
+    }
+  } catch {}
+
+  return { name: null, imageUrl: null };
 }
 
 // --- Fetch image from URL ---
