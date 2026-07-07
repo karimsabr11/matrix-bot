@@ -1,0 +1,18 @@
+{
+  "name": "asda-barcode-bot",
+  "version": "1.0.0",
+  "description": "Discord bot for generating Asda reduced barcodes",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "@napi-rs/canvas": "^0.1.56",
+    "jsbarcode": "^3.11.6",
+    "dotenv": "^16.4.7"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
