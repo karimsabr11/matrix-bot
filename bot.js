@@ -17,8 +17,11 @@ const {
   PermissionFlagsBits,
   AttachmentBuilder,
 } = require('discord.js');
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
+const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const JsBarcode = require('jsbarcode');
+
+// Register font for cross-platform rendering
+GlobalFonts.registerFromPath(path.join(__dirname, 'assets', 'Inter.ttf'), 'Inter');
 
 const TOKEN = process.env.BOT_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -265,42 +268,23 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
     }
   }
 
-  // --- Product name (centered manually) ---
+  // --- Product name ---
   const displayName = productName || 'Unknown Product';
-  ctx.font = '34px sans-serif';
+  ctx.font = '34px Inter';
   ctx.fillStyle = '#ffffff';
-  let nameMetrics = ctx.measureText(displayName);
-  if (nameMetrics.width > width - 80) {
-    ctx.font = '26px sans-serif';
-    nameMetrics = ctx.measureText(displayName);
+  let nameWidth = ctx.measureText(displayName).width;
+  if (nameWidth > width - 80) {
+    ctx.font = '26px Inter';
+    nameWidth = ctx.measureText(displayName).width;
   }
-  const nameX = (width - nameMetrics.width) / 2;
-  ctx.fillText(displayName, nameX, currentY + 30);
+  ctx.fillText(displayName, (width - nameWidth) / 2, currentY + 30);
   currentY += 70;
 
-  // --- "WAS £X.XX" with strikethrough (red, centered) ---
-  if (originalPrice) {
-    const wasText = `WAS £${originalPrice}`;
-    ctx.font = '26px sans-serif';
-    ctx.fillStyle = '#ef4444';
-    const wasMetrics = ctx.measureText(wasText);
-    const wasX = (width - wasMetrics.width) / 2;
-    ctx.fillText(wasText, wasX, currentY + 22);
-    // Strikethrough
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(wasX, currentY + 15);
-    ctx.lineTo(wasX + wasMetrics.width, currentY + 15);
-    ctx.stroke();
-    currentY += 55;
-  }
-
-  // --- New price in yellow box (centered) ---
+  // --- Price in yellow box ---
   const priceText = `£${price}`;
-  ctx.font = 'bold 56px sans-serif';
-  const priceMetrics = ctx.measureText(priceText);
-  const pBoxW = priceMetrics.width + 50;
+  ctx.font = 'bold 56px Inter';
+  const priceWidth = ctx.measureText(priceText).width;
+  const pBoxW = priceWidth + 60;
   const pBoxH = 80;
   const pBoxX = (width - pBoxW) / 2;
   const pBoxY = currentY;
@@ -309,14 +293,12 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   roundedRect(ctx, pBoxX, pBoxY, pBoxW, pBoxH, 12);
   ctx.fill();
 
-  // Price text centered in yellow box
   ctx.fillStyle = '#000000';
-  ctx.font = 'bold 56px sans-serif';
-  const priceX = (width - priceMetrics.width) / 2;
-  ctx.fillText(priceText, priceX, pBoxY + 58);
+  ctx.font = 'bold 56px Inter';
+  ctx.fillText(priceText, (width - priceWidth) / 2, pBoxY + 58);
   currentY = pBoxY + pBoxH + 40;
 
-  // --- Barcode centered and filling width ---
+  // --- Barcode centered ---
   const barcodeW = width - 60;
   const barcodeH = height - currentY - 20;
   const barcodeCanvas = createCanvas(barcodeW, Math.max(barcodeH, 120));
@@ -335,13 +317,11 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   } catch {
     const bCtx = barcodeCanvas.getContext('2d');
     bCtx.fillStyle = '#ffffff';
-    bCtx.font = '20px monospace';
+    bCtx.font = '20px Inter';
     bCtx.fillText(asdaBarcode, 10, barcodeCanvas.height / 2);
   }
 
-  // Center the barcode
-  const barcodeX = (width - barcodeW) / 2;
-  ctx.drawImage(barcodeCanvas, barcodeX, currentY);
+  ctx.drawImage(barcodeCanvas, (width - barcodeW) / 2, currentY);
 
   return canvas.toBuffer('image/png');
 }

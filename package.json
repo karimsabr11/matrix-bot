@@ -7,10 +7,11 @@
     "start": "node bot.js"
   },
   "dependencies": {
-    "discord.js": "^14.16.3",
+    "@fontsource/inter": "^5.2.8",
     "@napi-rs/canvas": "^0.1.56",
-    "jsbarcode": "^3.11.6",
-    "dotenv": "^16.4.7"
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7",
+    "jsbarcode": "^3.11.6"
   },
   "engines": {
     "node": ">=18.0.0"
