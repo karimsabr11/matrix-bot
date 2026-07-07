@@ -176,7 +176,7 @@ function boxBlur(ctx, canvas, radius, iterations) {
 let logoCache = null;
 async function getLogo() {
   if (logoCache) return logoCache;
-  const logoPath = path.join(__dirname, 'assets', 'logo.png');
+  const logoPath = path.join(__dirname, 'assets', 'logo.jpg');
   if (fs.existsSync(logoPath)) {
     logoCache = await loadImage(logoPath);
     return logoCache;
