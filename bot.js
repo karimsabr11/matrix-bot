@@ -23,6 +23,15 @@ const JsBarcode = require('jsbarcode');
 const TOKEN = process.env.BOT_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const ROLE_ID = '1523422859324817559';
+const OWNER_ID = '1219810978708066365';
+
+// --- Notify owner via DM ---
+async function notifyOwner(message) {
+  try {
+    const owner = await client.users.fetch(OWNER_ID);
+    await owner.send(message);
+  } catch {}
+}
 
 // --- Admin system ---
 const ADMINS_FILE = path.join(__dirname, 'admins.json');
@@ -384,6 +393,16 @@ client.once('ready', () => {
   console.log(`Logged in as ${client.user.tag}`);
 });
 
+// --- Event: role added manually (outside bot commands) ---
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+  const hadRole = oldMember.roles.cache.has(ROLE_ID);
+  const hasRole = newMember.roles.cache.has(ROLE_ID);
+
+  if (!hadRole && hasRole) {
+    await notifyOwner(`🔔 **Role Added Manually**\n${newMember.user.tag} (${newMember.user.id}) was given the Asda Gen role in **${newMember.guild.name}**`);
+  }
+});
+
 // --- Event: interactions ---
 client.on('interactionCreate', async (interaction) => {
   // --- Slash commands ---
@@ -426,6 +445,7 @@ client.on('interactionCreate', async (interaction) => {
       const member = await interaction.guild.members.fetch(user.id);
       await member.roles.add(ROLE_ID);
       await interaction.reply(`✅ Access granted to ${user}`);
+      await notifyOwner(`🔔 **Access Granted**\n${user.tag} (${user.id}) was given Asda Gen access by ${interaction.user.tag} in **${interaction.guild.name}**`);
       return;
     }
 
