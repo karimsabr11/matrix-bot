@@ -221,7 +221,7 @@ function roundedRect(ctx, x, y, w, h, r) {
 // --- Render barcode image ---
 async function renderBarcodeImage(asdaBarcode, productName, price, productImageUrl, originalPrice) {
   const width = 800;
-  const height = 1200;
+  const height = 1100;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
@@ -229,117 +229,110 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   ctx.fillStyle = '#2a2a2a';
   ctx.fillRect(0, 0, width, height);
 
-  let currentY = 50;
+  let currentY = 40;
 
   // --- Product image ---
   if (productImageUrl) {
     const productImg = await fetchImage(productImageUrl);
     if (productImg) {
-      const imgSize = 320;
+      const imgSize = 300;
       const imgX = (width - imgSize) / 2;
       const imgY = currentY;
 
-      // White background behind product image
+      // White box behind image
       ctx.fillStyle = '#ffffff';
       roundedRect(ctx, imgX - 20, imgY - 20, imgSize + 40, imgSize + 40, 16);
       ctx.fill();
 
-      // Draw product image maintaining aspect ratio
-      ctx.save();
-      roundedRect(ctx, imgX, imgY, imgSize, imgSize, 8);
-      ctx.clip();
+      // Draw product image
       const scale = Math.min(imgSize / productImg.width, imgSize / productImg.height);
       const drawW = productImg.width * scale;
       const drawH = productImg.height * scale;
       const drawX = imgX + (imgSize - drawW) / 2;
       const drawY = imgY + (imgSize - drawH) / 2;
       ctx.drawImage(productImg, drawX, drawY, drawW, drawH);
-      ctx.restore();
 
-      currentY = imgY + imgSize + 60;
+      currentY = imgY + imgSize + 50;
     }
   }
 
-  // --- Product name ---
+  // --- Product name (centered manually) ---
   const displayName = productName || 'Unknown Product';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
+  ctx.font = '34px sans-serif';
   ctx.fillStyle = '#ffffff';
-  ctx.font = '36px sans-serif';
-  const maxTextWidth = width - 80;
-  if (ctx.measureText(displayName).width > maxTextWidth) {
-    ctx.font = '28px sans-serif';
+  let nameMetrics = ctx.measureText(displayName);
+  if (nameMetrics.width > width - 80) {
+    ctx.font = '26px sans-serif';
+    nameMetrics = ctx.measureText(displayName);
   }
-  ctx.fillText(displayName, width / 2, currentY, maxTextWidth);
-  currentY += 55;
+  const nameX = (width - nameMetrics.width) / 2;
+  ctx.fillText(displayName, nameX, currentY + 30);
+  currentY += 70;
 
-  // --- "WAS £X.XX" with strikethrough ---
+  // --- "WAS £X.XX" with strikethrough (red, centered) ---
   if (originalPrice) {
     const wasText = `WAS £${originalPrice}`;
-    ctx.fillStyle = '#ef4444';
     ctx.font = '26px sans-serif';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(wasText, width / 2, currentY);
-    // Strikethrough line
-    const textW = ctx.measureText(wasText).width;
+    ctx.fillStyle = '#ef4444';
+    const wasMetrics = ctx.measureText(wasText);
+    const wasX = (width - wasMetrics.width) / 2;
+    ctx.fillText(wasText, wasX, currentY + 22);
+    // Strikethrough
     ctx.strokeStyle = '#ef4444';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(width / 2 - textW / 2, currentY);
-    ctx.lineTo(width / 2 + textW / 2, currentY);
+    ctx.moveTo(wasX, currentY + 15);
+    ctx.lineTo(wasX + wasMetrics.width, currentY + 15);
     ctx.stroke();
-    currentY += 50;
+    currentY += 55;
   }
 
-  // --- New price in yellow rounded box ---
+  // --- New price in yellow box (centered) ---
   const priceText = `£${price}`;
-  ctx.font = 'bold 58px sans-serif';
-  ctx.textBaseline = 'middle';
+  ctx.font = 'bold 56px sans-serif';
   const priceMetrics = ctx.measureText(priceText);
-  const pBoxW = priceMetrics.width + 60;
-  const pBoxH = 90;
+  const pBoxW = priceMetrics.width + 50;
+  const pBoxH = 80;
   const pBoxX = (width - pBoxW) / 2;
   const pBoxY = currentY;
 
-  // Yellow box
   ctx.fillStyle = '#f5c518';
-  roundedRect(ctx, pBoxX, pBoxY, pBoxW, pBoxH, 14);
+  roundedRect(ctx, pBoxX, pBoxY, pBoxW, pBoxH, 12);
   ctx.fill();
 
-  // Price text centered in the yellow box
+  // Price text centered in yellow box
   ctx.fillStyle = '#000000';
-  ctx.font = 'bold 58px sans-serif';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(priceText, width / 2, pBoxY + pBoxH / 2);
+  ctx.font = 'bold 56px sans-serif';
+  const priceX = (width - priceMetrics.width) / 2;
+  ctx.fillText(priceText, priceX, pBoxY + 58);
+  currentY = pBoxY + pBoxH + 40;
 
-  currentY = pBoxY + pBoxH + 50;
-
-  // --- Barcode fills remaining space ---
-  const barcodePadding = 30;
-  const barcodeW = width - (barcodePadding * 2);
+  // --- Barcode centered and filling width ---
+  const barcodeW = width - 60;
   const barcodeH = height - currentY - 20;
+  const barcodeCanvas = createCanvas(barcodeW, Math.max(barcodeH, 120));
 
-  const barcodeCanvas = createCanvas(barcodeW, Math.max(barcodeH, 150));
   try {
     JsBarcode(barcodeCanvas, asdaBarcode, {
       format: 'CODE128',
       width: 3,
-      height: Math.max(barcodeH - 50, 100),
+      height: Math.max(barcodeH - 40, 80),
       displayValue: true,
-      fontSize: 22,
-      margin: 5,
+      fontSize: 20,
+      margin: 0,
       background: 'transparent',
       lineColor: '#ffffff',
     });
   } catch {
     const bCtx = barcodeCanvas.getContext('2d');
     bCtx.fillStyle = '#ffffff';
-    bCtx.font = '22px monospace';
-    bCtx.textAlign = 'center';
-    bCtx.fillText(asdaBarcode, barcodeCanvas.width / 2, barcodeCanvas.height / 2);
+    bCtx.font = '20px monospace';
+    bCtx.fillText(asdaBarcode, 10, barcodeCanvas.height / 2);
   }
 
-  ctx.drawImage(barcodeCanvas, barcodePadding, currentY);
+  // Center the barcode
+  const barcodeX = (width - barcodeW) / 2;
+  ctx.drawImage(barcodeCanvas, barcodeX, currentY);
 
   return canvas.toBuffer('image/png');
 }
