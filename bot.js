@@ -298,7 +298,7 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   ctx.fillText(priceText, (width - priceWidth) / 2, pBoxY + 50);
   currentY = pBoxY + pBoxH + 35;
 
-  // --- Barcode: full width edge to edge, at the bottom ---
+  // --- Barcode: centered in remaining space, full width ---
   const barcodeW = width - 20;
   const barcodeH = 180;
   const barcodeCanvas = createCanvas(barcodeW, barcodeH);
@@ -322,8 +322,9 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
     bCtx.fillText(asdaBarcode, 10, barcodeCanvas.height / 2);
   }
 
-  // Place barcode at the bottom, centered
-  const barcodeY = height - barcodeH - 30;
+  // Center barcode vertically in the remaining grey space
+  const remainingSpace = height - currentY;
+  const barcodeY = currentY + (remainingSpace - barcodeH) / 2;
   ctx.drawImage(barcodeCanvas, 10, barcodeY);
 
   return canvas.toBuffer('image/png');
