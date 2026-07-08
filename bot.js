@@ -298,8 +298,8 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   ctx.fillText(priceText, (width - priceWidth) / 2, pBoxY + 50);
   currentY = pBoxY + pBoxH + 35;
 
-  // --- Barcode: full width, shorter height, scannable ---
-  const barcodeW = width - 40;
+  // --- Barcode: full width edge to edge, at the bottom ---
+  const barcodeW = width - 20;
   const barcodeH = 180;
   const barcodeCanvas = createCanvas(barcodeW, barcodeH);
 
@@ -310,7 +310,7 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
       height: 130,
       displayValue: true,
       fontSize: 18,
-      margin: 5,
+      margin: 0,
       background: 'transparent',
       lineColor: '#ffffff',
       font: 'Inter',
@@ -322,7 +322,9 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
     bCtx.fillText(asdaBarcode, 10, barcodeCanvas.height / 2);
   }
 
-  ctx.drawImage(barcodeCanvas, 20, currentY);
+  // Place barcode at the bottom, centered
+  const barcodeY = height - barcodeH - 30;
+  ctx.drawImage(barcodeCanvas, 10, barcodeY);
 
   return canvas.toBuffer('image/png');
 }
