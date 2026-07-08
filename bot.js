@@ -322,7 +322,7 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
 
   // Draw it stretched to fill the width, centered in remaining space
   const drawW = width - 40;
-  const drawH = 160;
+  const drawH = 320;
   const remainingSpace = height - currentY;
   const barcodeY = currentY + (remainingSpace - drawH) / 2;
   ctx.drawImage(tempBarcodeCanvas, 20, barcodeY, drawW, drawH);
