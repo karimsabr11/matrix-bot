@@ -298,34 +298,34 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   ctx.fillText(priceText, (width - priceWidth) / 2, pBoxY + 50);
   currentY = pBoxY + pBoxH + 35;
 
-  // --- Barcode: centered in remaining space, full width ---
-  const barcodeW = width - 20;
-  const barcodeH = 180;
-  const barcodeCanvas = createCanvas(barcodeW, barcodeH);
-
+  // --- Barcode: render then stretch to fill width, centered vertically ---
+  // First render barcode at natural size
+  const tempBarcodeCanvas = createCanvas(600, 180);
   try {
-    JsBarcode(barcodeCanvas, asdaBarcode, {
+    JsBarcode(tempBarcodeCanvas, asdaBarcode, {
       format: 'CODE128',
       width: 2,
       height: 130,
       displayValue: true,
       fontSize: 18,
-      margin: 0,
+      margin: 5,
       background: 'transparent',
       lineColor: '#ffffff',
       font: 'Inter',
     });
   } catch {
-    const bCtx = barcodeCanvas.getContext('2d');
+    const bCtx = tempBarcodeCanvas.getContext('2d');
     bCtx.fillStyle = '#ffffff';
     bCtx.font = '18px Inter';
-    bCtx.fillText(asdaBarcode, 10, barcodeCanvas.height / 2);
+    bCtx.fillText(asdaBarcode, 10, 90);
   }
 
-  // Center barcode vertically in the remaining grey space
+  // Draw it stretched to fill the width, centered in remaining space
+  const drawW = width - 40;
+  const drawH = 160;
   const remainingSpace = height - currentY;
-  const barcodeY = currentY + (remainingSpace - barcodeH) / 2;
-  ctx.drawImage(barcodeCanvas, 10, barcodeY);
+  const barcodeY = currentY + (remainingSpace - drawH) / 2;
+  ctx.drawImage(tempBarcodeCanvas, 20, barcodeY, drawW, drawH);
 
   return canvas.toBuffer('image/png');
 }
