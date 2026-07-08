@@ -233,7 +233,7 @@ function roundedRect(ctx, x, y, w, h, r) {
 // --- Render barcode image ---
 async function renderBarcodeImage(asdaBarcode, productName, price, productImageUrl, originalPrice) {
   const width = 800;
-  const height = 1100;
+  const height = 950;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
@@ -247,13 +247,13 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
   if (productImageUrl) {
     const productImg = await fetchImage(productImageUrl);
     if (productImg) {
-      const imgSize = 300;
+      const imgSize = 250;
       const imgX = (width - imgSize) / 2;
       const imgY = currentY;
 
       // White box behind image
       ctx.fillStyle = '#ffffff';
-      roundedRect(ctx, imgX - 20, imgY - 20, imgSize + 40, imgSize + 40, 16);
+      roundedRect(ctx, imgX - 15, imgY - 15, imgSize + 30, imgSize + 30, 12);
       ctx.fill();
 
       // Draw product image
@@ -264,64 +264,65 @@ async function renderBarcodeImage(asdaBarcode, productName, price, productImageU
       const drawY = imgY + (imgSize - drawH) / 2;
       ctx.drawImage(productImg, drawX, drawY, drawW, drawH);
 
-      currentY = imgY + imgSize + 50;
+      currentY = imgY + imgSize + 40;
     }
   }
 
   // --- Product name ---
   const displayName = productName || 'Unknown Product';
-  ctx.font = '34px Inter';
+  ctx.font = '32px Inter';
   ctx.fillStyle = '#ffffff';
   let nameWidth = ctx.measureText(displayName).width;
   if (nameWidth > width - 80) {
-    ctx.font = '26px Inter';
+    ctx.font = '24px Inter';
     nameWidth = ctx.measureText(displayName).width;
   }
-  ctx.fillText(displayName, (width - nameWidth) / 2, currentY + 30);
-  currentY += 70;
+  ctx.fillText(displayName, (width - nameWidth) / 2, currentY + 28);
+  currentY += 60;
 
   // --- Price in yellow box ---
   const priceText = `£${price}`;
-  ctx.font = 'bold 56px Inter';
+  ctx.font = 'bold 48px Inter';
   const priceWidth = ctx.measureText(priceText).width;
-  const pBoxW = priceWidth + 60;
-  const pBoxH = 80;
+  const pBoxW = priceWidth + 40;
+  const pBoxH = 65;
   const pBoxX = (width - pBoxW) / 2;
   const pBoxY = currentY;
 
   ctx.fillStyle = '#f5c518';
-  roundedRect(ctx, pBoxX, pBoxY, pBoxW, pBoxH, 12);
+  roundedRect(ctx, pBoxX, pBoxY, pBoxW, pBoxH, 10);
   ctx.fill();
 
   ctx.fillStyle = '#000000';
-  ctx.font = 'bold 56px Inter';
-  ctx.fillText(priceText, (width - priceWidth) / 2, pBoxY + 58);
-  currentY = pBoxY + pBoxH + 40;
+  ctx.font = 'bold 48px Inter';
+  ctx.fillText(priceText, (width - priceWidth) / 2, pBoxY + 50);
+  currentY = pBoxY + pBoxH + 35;
 
-  // --- Barcode centered ---
-  const barcodeW = width - 60;
-  const barcodeH = height - currentY - 20;
-  const barcodeCanvas = createCanvas(barcodeW, Math.max(barcodeH, 120));
+  // --- Barcode: full width, shorter height, scannable ---
+  const barcodeW = width - 40;
+  const barcodeH = 180;
+  const barcodeCanvas = createCanvas(barcodeW, barcodeH);
 
   try {
     JsBarcode(barcodeCanvas, asdaBarcode, {
       format: 'CODE128',
-      width: 3,
-      height: Math.max(barcodeH - 40, 80),
+      width: 2,
+      height: 130,
       displayValue: true,
-      fontSize: 20,
-      margin: 0,
+      fontSize: 18,
+      margin: 5,
       background: 'transparent',
       lineColor: '#ffffff',
+      font: 'Inter',
     });
   } catch {
     const bCtx = barcodeCanvas.getContext('2d');
     bCtx.fillStyle = '#ffffff';
-    bCtx.font = '20px Inter';
+    bCtx.font = '18px Inter';
     bCtx.fillText(asdaBarcode, 10, barcodeCanvas.height / 2);
   }
 
-  ctx.drawImage(barcodeCanvas, (width - barcodeW) / 2, currentY);
+  ctx.drawImage(barcodeCanvas, 20, currentY);
 
   return canvas.toBuffer('image/png');
 }
